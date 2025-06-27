@@ -27,6 +27,15 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import com.example.screendesign.data.Event
+import com.example.screendesign.data.EventRepository
+import com.example.screendesign.screens.EventDetailScreen
+import com.example.screendesign.screens.ProfileScreen
+import com.example.screendesign.screens.SearchScreen
 import com.example.screendesign.ui.theme.ScreenDesignTheme
 
 class MainActivity : ComponentActivity() {
@@ -35,14 +44,74 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             ScreenDesignTheme {
-                EventsScreen()
+                EventsApp()
             }
         }
     }
 }
 
 @Composable
-fun EventsScreen() {
+fun EventsApp() {
+    val navController = rememberNavController()
+    
+    NavHost(
+        navController = navController,
+        startDestination = "events_home"
+    ) {
+        composable("events_home") {
+            EventsScreen(
+                onSearchClick = { navController.navigate("search") },
+                onEventClick = { event ->
+                    navController.navigate("event_detail/${event.id}")
+                },
+                onProfileClick = { navController.navigate("profile") }
+            )
+        }
+        
+        composable("search") {
+            SearchScreen(
+                onBackClick = { navController.popBackStack() },
+                onEventClick = { event ->
+                    navController.navigate("event_detail/${event.id}")
+                }
+            )
+        }
+        
+        composable("event_detail/{eventId}") { backStackEntry ->
+            val eventId = backStackEntry.arguments?.getString("eventId")
+            val event = EventRepository.sampleEvents.find { it.id == eventId }
+            
+            event?.let {
+                EventDetailScreen(
+                    event = it,
+                    onBackClick = { navController.popBackStack() },
+                    onBookEvent = {
+                        // TODO: Implement booking logic
+                    }
+                )
+            }
+        }
+        
+        composable("profile") {
+            ProfileScreen(
+                onBackClick = { navController.popBackStack() },
+                onEditProfile = {
+                    // TODO: Implement edit profile
+                },
+                onSettings = {
+                    // TODO: Implement settings
+                }
+            )
+        }
+    }
+}
+
+@Composable
+fun EventsScreen(
+    onSearchClick: () -> Unit,
+    onEventClick: (Event) -> Unit,
+    onProfileClick: () -> Unit
+) {
     // Define colors from the image
     val lightBlue = Color(0xFF4AA1E5)
     val darkBlue = Color(0xFF1E2A4A)
@@ -73,12 +142,14 @@ fun EventsScreen() {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Rounded.ArrowBack,
-                        contentDescription = "Back",
-                        tint = Color.White,
-                        modifier = Modifier.size(24.dp)
-                    )
+                    IconButton(onClick = onProfileClick) {
+                        Icon(
+                            imageVector = Icons.Default.Person,
+                            contentDescription = "Profile",
+                            tint = Color.White,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "Events",
@@ -88,12 +159,14 @@ fun EventsScreen() {
                     )
                 }
                 
-                Icon(
-                    imageVector = Icons.Rounded.Search,
-                    contentDescription = "Search",
-                    tint = Color.White,
-                    modifier = Modifier.size(24.dp)
-                )
+                IconButton(onClick = onSearchClick) {
+                    Icon(
+                        imageVector = Icons.Rounded.Search,
+                        contentDescription = "Search",
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
             }
             
             Spacer(modifier = Modifier.height(24.dp))
@@ -172,22 +245,16 @@ fun EventsScreen() {
             ) {
                 // First card
                 EventCard(
-                    title = "The best event",
-                    date = "08 March",
-                    category = "STAR events hall",
-                    rating = 5,
-                    value = "2.89 K",
-                    modifier = Modifier.weight(1f)
+                    event = EventRepository.sampleEvents[0],
+                    modifier = Modifier.weight(1f),
+                    onEventClick = onEventClick
                 )
                 
                 // Second card
                 EventCard(
-                    title = "Lucky event",
-                    date = "17 February",
-                    category = "Luxury events hall",
-                    rating = 5,
-                    value = "7.91 K",
-                    modifier = Modifier.weight(1f)
+                    event = EventRepository.sampleEvents[1],
+                    modifier = Modifier.weight(1f),
+                    onEventClick = onEventClick
                 )
             }
             
@@ -204,21 +271,21 @@ fun EventsScreen() {
             Spacer(modifier = Modifier.height(16.dp))
             
             // Events list
-            EventListItem(title = "Luxury event")
-            EventListItem(title = "The most beautiful event")
-            EventListItem(title = "King event")
+            EventRepository.sampleEvents.drop(2).take(3).forEach { event ->
+                EventListItem(
+                    event = event,
+                    onClick = { onEventClick(event) }
+                )
+            }
         }
     }
 }
 
 @Composable
 fun EventCard(
-    title: String,
-    date: String,
-    category: String,
-    rating: Int,
-    value: String,
-    modifier: Modifier = Modifier
+    event: Event,
+    modifier: Modifier = Modifier,
+    onEventClick: (Event) -> Unit
 ) {
     val navyBlue = Color(0xFF2A3A5A)
     val accentBlue = Color(0xFF60B5FF)
@@ -226,7 +293,8 @@ fun EventCard(
     Card(
         modifier = modifier
             .clip(RoundedCornerShape(16.dp)),
-        colors = CardDefaults.cardColors(containerColor = navyBlue)
+        colors = CardDefaults.cardColors(containerColor = navyBlue),
+        onClick = { onEventClick(event) }
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -252,7 +320,7 @@ fun EventCard(
             
             // Title
             Text(
-                text = title,
+                text = event.title,
                 color = Color.White,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Medium,
@@ -261,7 +329,7 @@ fun EventCard(
             
             // Date
             Text(
-                text = date,
+                text = event.formattedDate,
                 color = Color.White.copy(alpha = 0.7f),
                 fontSize = 12.sp,
                 textAlign = TextAlign.Center
@@ -269,7 +337,7 @@ fun EventCard(
             
             // Category
             Text(
-                text = category,
+                text = event.location,
                 color = accentBlue,
                 fontSize = 10.sp,
                 textAlign = TextAlign.Center
@@ -281,7 +349,7 @@ fun EventCard(
             Row(
                 horizontalArrangement = Arrangement.Center
             ) {
-                repeat(rating) {
+                repeat(event.rating.toInt()) {
                     Icon(
                         imageVector = Icons.Default.Star,
                         contentDescription = null,
@@ -295,7 +363,7 @@ fun EventCard(
             
             // Value
             Text(
-                text = value,
+                text = event.attendeesText,
                 color = Color.White,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
@@ -306,7 +374,7 @@ fun EventCard(
             
             // View button
             Button(
-                onClick = { /* TODO */ },
+                onClick = { onEventClick(event) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(32.dp),
@@ -325,7 +393,10 @@ fun EventCard(
 }
 
 @Composable
-fun EventListItem(title: String) {
+fun EventListItem(
+    event: Event,
+    onClick: () -> Unit
+) {
     val accentBlue = Color(0xFF60B5FF)
     
     Row(
@@ -354,7 +425,7 @@ fun EventListItem(title: String) {
         
         // Title
         Text(
-            text = title,
+            text = event.title,
             color = Color.White,
             fontSize = 16.sp,
             fontWeight = FontWeight.Medium,
@@ -362,12 +433,14 @@ fun EventListItem(title: String) {
         )
         
         // Arrow icon
-        Icon(
-            imageVector = Icons.Rounded.KeyboardArrowRight,
-            contentDescription = "View details",
-            tint = Color.White,
-            modifier = Modifier.size(24.dp)
-        )
+        IconButton(onClick = onClick) {
+            Icon(
+                imageVector = Icons.Rounded.KeyboardArrowRight,
+                contentDescription = "View details",
+                tint = Color.White,
+                modifier = Modifier.size(24.dp)
+            )
+        }
     }
 }
 
@@ -375,6 +448,6 @@ fun EventListItem(title: String) {
 @Composable
 fun EventsScreenPreview() {
     ScreenDesignTheme {
-        EventsScreen()
+        EventsApp()
     }
 }
